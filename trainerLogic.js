@@ -3,6 +3,7 @@ let trainerStats = JSON.parse(localStorage.getItem('trainerStats') || '{"level":
 let currentPracticeCode = null;
 let hintStep = 0;
 
+// ==================== ПАРСЕР METAR ====================
 function parseMetar(metar) {
     try {
         const parts = metar.trim().toUpperCase().replace(/=+$/,'').split(/\s+/);
@@ -141,242 +142,8 @@ function parseMetar(metar) {
     }
 }
 
-function parseWeather(code) {
-    return code.split(/(?=[A-Z]{2})/).map(c => WEATHER_CODES[c] || c).join(' ');
-}
+// ==================== Остальные функции ====================
 
-function parseMetarFields(metar) {
-    const parts = metar.trim().toUpperCase().replace(/=+$/,'').split(/\s+/);
-    const out = { wind: '', vis: '', temp: '', qnh: '' };
-    for (let i = 0; i < parts.length; i++) {
-        if (/^(VRB|\d{3}|\/\/\/)\d{2,3}(G\d{2,3})?(KT|MPS|KMH)$/.test(parts[i])) {
-            out.wind = parts[i];
-            continue;
-        }
-    }
-    const visMatch = parts.find(p => p === 'CAVOK' || /^\d{4}$/.test(p));
-    out.vis = visMatch || '';
-    const tempMatch = parts.find(p => /^(M?\d{2})\/(M?\d{2})$/.test(p));
-    out.temp = tempMatch || '';
-    const qMatch = parts.find(p => /^[QA]\d{4}$/.test(p));
-    out.qnh = qMatch || '';
-    return out;
-}
-
-function parseTaf(taf) {
-    try {
-        const parts = taf.trim().toUpperCase().split(/\s+/);
-        let i = 0;
-        const out = ['Прогноз погоды по аэродрому (TAF)'];
-        if (parts[i] === 'TAF') i++;
-        if (parts[i] === 'AMD' || parts[i] === 'COR') { out.push(`Статус: ${parts[i] === 'AMD' ? 'исправленный' : 'корректированный'}`); i++; }
-        if (/^[A-Z]{4}$/.test(parts[i])) { out.push(`Аэродром: ${parts[i]}`); i++; }
-        if (/\^\d{6}Z/.test(parts[i])) {
-            const d = parts[i];
-            out.push(`Выпущен: ${d.slice(0,2)} число, ${d.slice(2,4)}:${d.slice(4,6)} UTC`);
-            i++;
-        }
-        if (/^\d{4}\/\d{4}$/.test(parts[i])) {
-            const [from, to] = parts[i].split('/');
-            out.push(`Действует: с ${from.slice(0,2)} ${from.slice(2)}:00 до ${to.slice(0,2)} ${to.slice(2)}:00 UTC`);
-            i++;
-        }
-        let temp = [];
-        while (i < parts.length && !['FM','TEMPO','BECMG','PROB30','PROB40'].includes(parts[i])) {
-            temp.push(parts[i++]);
-        }
-        out.push('Основной прогноз:');
-        out.push(parseMetar(temp.join(' ')));
-        while (i < parts.length) {
-            let line = '';
-            let prob = '';
-            if (parts[i].startsWith('PROB')) {
-                prob = parts[i] + ' вероятность ';
-                i++;
-            }
-            const type = parts[i++];
-            if (type === 'FM') {
-                const time = parts[i++];
-                line += `${prob}С ${time.slice(0,2)} числа ${time.slice(2,4)}:${time.slice(4,6)} UTC: `;
-            } else if (type === 'TEMPO' || type === 'BECMG') {
-                const period = parts[i++];
-                const [f,t] = period.split('/');
-                line += `${prob}${type === 'TEMPO' ? 'Временно' : 'Становясь'} с ${f.slice(0,2)} ${f.slice(2)}:00 до ${t.slice(0,2)} ${t.slice(2)}:00: `;
-            }
-            temp = [];
-            while (i < parts.length && !['FM','TEMPO','BECMG','PROB30','PROB40'].includes(parts[i])) {
-                temp.push(parts[i++]);
-            }
-            out.push(line);
-            out.push(parseMetar(temp.join(' ')));
-        }
-        return out.join('\n');
-    } catch (e) {
-        return 'Ошибка парсинга TAF: ' + e.message;
-    }
-}
-
-const codeInstructions = {
-    metar: {
-        title: "METAR / SPECI",
-        decode: `<strong>Режим авторасшифровки METAR:</strong><br>Вставьте код — получите полную расшифровку.<br>
-                         Поддерживается: ветер, видимость, RVR, погода, облачность, температура, давление, тренд, RMK.`,
-        hints: `• ICAO код аэродрома<br>
-                        • День и время (Z)<br>
-                        • Ветер: 05007MPS или 18015G25KT<br>
-                        • Видимость: 9999, 6000, CAVOK<br>
-                        • Погода: RA, TS, +SHRA<br>
-                        • Облачность: BKN020CB<br>
-                        • Температура/точка росы: 15/12 или M02/M04<br>
-                        • Q1013, A2992<br>
-                        • NOSIG, BECMG, TEMPO`
-    },
-    kn01: {
-        title: "КН-01 (Синоптический код)",
-        decode: `<strong>КН-01 — наземные метеонаблюдения</strong><br>Расшифровка по группам: идентификатор, ветер, видимость, ...`,
-        hints: `• 34580 — индекс станции<br>
-                        • 11012 — облачность малая<br>
-                        • 21089 — облачность средняя/верхняя<br>
-                        • 30012 — нижняя облачность<br>
-                        • 40123 — давление на уровне станции<br>
-                        • 52015 — тенденция давления<br>
-                        • 60022 — осадки за 6 ч<br>
-                        • 70033 — осадки за 3 ч<br>
-                        • 91012 — погода в срок и между сроками`
-    },
-    taf: {
-        title: "TAF (Прогноз по аэродрому)",
-        decode: `<strong>TAF — прогноз погоды</strong><br>Включает период действия, изменения FM, TEMPO, BECMG, PROB.`,
-        hints: `• TAF AMD, COR<br>
-                        • Период: 151200/161200<br>
-                        • FM151300 — с 13:00<br>
-                        • TEMPO 1514/1518 — временно<br>
-                        • BECMG 1520/1522 — постепенное изменение<br>
-                        • PROB30, PROB40 — вероятность`
-    },
-    gamet: {
-        title: "GAMET (Прогноз для низких уровней)",
-        decode: `<strong>GAMET — прогноз опасных явлений</strong><br>Секции: SEC I (опасности), SEC II (прогноз по маршруту).`,
-        hints: `• VA — вулканический пепел<br>
-                        • TC — тропический циклон<br>
-                        • TURB, ICE, MTW<br>
-                        • SFC WIND, VIS, SIG CLD<br>
-                        • FL050-100 — уровень`
-    },
-    sigmet: {
-        title: "SIGMET (Значительное явление)",
-        decode: `<strong>SIGMET — предупреждение о значительных явлениях</strong><br>TS, TC, TURB, ICE, VA, MTW и др.`,
-        hints: `• WS — SIGMET по ветру<br>
-                        • WV — по турбулентности<br>
-                        • WC — по обледенению<br>
-                        • VALID 151200/151600<br>
-                        • VA ERUPTION, TC NAME<br>
-                        • OBS, FCST, MOV E 30KT`
-    },
-    airmet: {
-        title: "AIRMET (Умеренные явления)",
-        decode: `<strong>AIRMET — умеренные явления</strong><br>Аналог SIGMET, но менее интенсивные.`,
-        hints: `• MOD TURB, MOD ICE<br>
-                        • MT OBSC, BKN CLD<br>
-                        • SFC VIS <5000M<br>
-                        • ISOL TS, OCNL RA`
-    },
-    kn04: {
-        title: "КН-04 (Штормовое предупреждение)",
-        decode: `<strong>КН-04 — штормовое предупреждение по району</strong><br>Для метеорологических районов РФ.`,
-        hints: `• VALID 151200/152400<br>
-                        • WIND 20020MPS G35MPS<br>
-                        • VIS 1000M RA<br>
-                        • TS, GR, SQ<br>
-                        • Район: Северо-Запад, Урал и т.д.`
-    },
-    warep: {
-        title: "WAREP (Особый репорт)",
-        decode: `<strong>WAREP — особый репорт пилота</strong><br>О турбулентности, обледенении, вулканическом пепле.`,
-        hints: `• TURB SEV, ICE MOD<br>
-                        • VA OBS, TC REPORT<br>
-                        • FL180, POSITION<br>
-                        • TIME 1230Z`
-    }
-};
-
-document.addEventListener('DOMContentLoaded', function () {
-    newEncodeExercise();
-    updateTrainerStats();
-    const devTypes = ['kn01', 'taf', 'gamet', 'sigmet', 'warep', 'kn04', 'airmet'];
-    document.querySelectorAll('.code-type-selector .code-type-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const devMessageEl = document.getElementById('dev-message');
-            const modeSelectorEl = document.querySelector('.mode-selector');
-            const inputSectionEl = document.querySelector('.input-section');
-            document.querySelectorAll('.code-type-selector .code-type-btn').forEach(b => {
-                b.classList.remove('active');
-                b.setAttribute('aria-selected', 'false');
-            });
-            this.classList.add('active');
-            this.setAttribute('aria-selected', 'true');
-            const type = this.dataset.type;
-            if (devTypes.includes(type)) {
-                if (modeSelectorEl) modeSelectorEl.style.display = 'none';
-                if (inputSectionEl) inputSectionEl.style.display = 'none';
-                if (devMessageEl) {
-                    devMessageEl.style.display = 'block';
-                    devMessageEl.textContent = 'В разработке';
-                }
-                if (document.getElementById('sidebar-hints')) {
-                    document.getElementById('sidebar-hints').innerHTML = `<strong>${type.toUpperCase()}</strong> — Модуль находится в разработке.`;
-                }
-                return;
-            }
-            if (modeSelectorEl) modeSelectorEl.style.display = '';
-            if (inputSectionEl) inputSectionEl.style.display = '';
-            if (devMessageEl) devMessageEl.style.display = 'none';
-            const info = codeInstructions[type];
-            if (info) {
-                document.getElementById('decode-instructions').innerHTML = info.decode;
-                document.getElementById('sidebar-hints').innerHTML = `<strong>${info.title}</strong><br><br>` + info.hints.replace(/\n/g, '<br>');
-            }
-        });
-    });
-    document.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            document.querySelectorAll('.mode-btn').forEach(b => {
-                b.classList.remove('active');
-                b.setAttribute('aria-selected', 'false');
-            });
-            this.classList.add('active');
-            this.setAttribute('aria-selected', 'true');
-            const mode = this.dataset.mode;
-            document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(mode + '-content').classList.add('active');
-        });
-    });
-    if (localStorage.getItem('theme') === 'dark') {
-        document.body.classList.add('dark');
-    }
-    initTopMenu();
-});
-
-function decodeCode() {
-    const code = document.getElementById('metar-input').value.trim();
-    const type = document.querySelector('.code-type-btn.active').dataset.type;
-    let result;
-    switch (type) {
-        case 'metar': result = parseMetar(code); break;
-        case 'taf': result = parseTaf(code); break;
-        case 'kn01': result = parseKn01(code); break;
-        case 'gamet': result = parseGamet(code); break;
-        case 'sigmet': result = parseSigmet(code); break;
-        case 'warep': result = parseWarep(code); break;
-        case 'kn04': result = parseKn04(code); break;
-        case 'airmet': result = parseAirmet(code); break;
-        default: result = 'Выберите тип кода';
-    }
-    document.getElementById('decode-result').textContent = result;
-    trainerStats.sessionDecoded++;
-    trainerStats.totalDecoded++;
-    updateTrainerStats();
-}
 function newPracticeCode() {
     const idx = Math.floor(Math.random() * speedDecodeData.length);
     currentPracticeCode = speedDecodeData[idx];
@@ -418,20 +185,6 @@ function checkEncode() {
     if (ok) trainerStats.sessionCorrect++;
     updateTrainerStats();
 }
-function newEncodeExercise() {
-    currentEncodeExercise = { description: 'Описание погоды', code: 'Код' }; // Пример, заменить на рандом из gameData
-    document.getElementById('weather-description').textContent = currentEncodeExercise.description;
-}
-
-function showEncodeHint() {
-    document.getElementById('encode-hint').textContent = 'Подсказка: ...';
-    document.getElementById('encode-hint').style.display = 'block';
-}
-
-function showNextHint() {
-    hintStep++;
-    // Логика для следующей подсказки
-}
 
 function updateTrainerStats() {
     document.getElementById('decoded-count').textContent = trainerStats.sessionDecoded;
@@ -439,10 +192,6 @@ function updateTrainerStats() {
     document.getElementById('correct-percent').textContent = percent + '%';
     document.getElementById('trainer-level').textContent = trainerStats.level;
     localStorage.setItem('trainerStats', JSON.stringify(trainerStats));
-}
-function resetStats() {
-    trainerStats = {level:1, totalDecoded:0, correctDecoded:0, sessionDecoded:0, sessionCorrect:0, errorsByType:{metar:0,kn01:0,taf:0,gamet:0,sigmet:0,warep:0,kn04:0,airmet:0}};
-    updateTrainerStats();
 }
 
 function clearFields() {
@@ -456,12 +205,14 @@ function copyCode(id) {
     navigator.clipboard.writeText(text);
 }
 
+// ТЕМА
 function toggleTheme() {
     document.body.classList.toggle('dark');
     const isDark = document.body.classList.contains('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
 }
 
+// Инициализация
 document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
     newEncodeExercise();
