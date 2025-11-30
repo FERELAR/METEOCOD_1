@@ -1347,16 +1347,4 @@ function toggleAccordion(element) {
     element.setAttribute("aria-expanded", "true");
   }
 }
-
-// Добавьте также обработчики событий для клавиатуры
-document.addEventListener('DOMContentLoaded', function() {
-  // Обработчики для аккордеона
-  document.querySelectorAll('.accordion h4').forEach(header => {
-    header.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggleAccordion(this);
-      }
-    });
-  });
-});
+    };
