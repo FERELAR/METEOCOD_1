@@ -8,7 +8,6 @@
     <meta name="theme-color" content="#2196F3">
     <link rel="stylesheet" href="combined.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
@@ -30,6 +29,7 @@
         <nav class="top-menu" role="tablist">
             <button class="active" data-page="trainer" aria-selected="true" role="tab"><i class="fas fa-cloud"></i> МЕТЕОКОДЕР</button>
             <button data-page="minigame" aria-selected="false" role="tab"><i class="fas fa-gamepad"></i> МИНИ-ИГРЫ</button>
+            <button data-page="exam" aria-selected="false" role="tab"><i class="fas fa-file-alt"></i>ЭКЗАМЕН</button>
             <button disabled=""><i class="fas fa-robot"></i> НЕЙРОЧАТ (Не доступно)</button>
             <button data-page="help" aria-selected="false" role="tab"><i class="fas fa-question-circle"></i>ИНСТРУКТИВНЫЙ МАТЕРИАЛ</button>
         </nav>
@@ -40,19 +40,14 @@
                     <section class="main-content-inner">
                         <nav class="code-type-selector" role="tablist">
                             <button class="code-type-btn active" data-type="metar" aria-selected="true" role="tab"><i class="fas fa-plane"></i> METAR/SPECI</button>
-                            <button class="code-type-btn" data-type="kn01" aria-selected="false" role="tab"><i class="fas fa-cloud-rain"></i> КН-01</button>
+                           <button disabled=""><i class="fas fa-cloud-rain"></i> КН-01</button>
                             <button class="code-type-btn" data-type="taf" aria-selected="false" role="tab"><i class="fas fa-clock"></i> TAF</button>
-                            <button class="code-type-btn" data-type="gamet" aria-selected="false" role="tab"><i class="fas fa-map-marked-alt"></i> GAMET</button>
-                            <button class="code-type-btn" data-type="sigmet" aria-selected="false" role="tab"><i class="fas fa-exclamation-triangle"></i> SIGMET</button>
-                            <button class="code-type-btn" data-type="warep" aria-selected="false" role="tab"><i class="fas fa-bolt"></i> WAREP</button>
-                            <button class="code-type-btn" data-type="kn04" aria-selected="false" role="tab"><i class="fas fa-wind"></i> КН-04</button>
-                            <button class="code-type-btn" data-type="airmet" aria-selected="false" role="tab"><i class="fas fa-cloud-meatball"></i> AIRMET</button>
+                            <button disabled=""><i class="fas fa-map-marked-alt"></i> GAMET</button>
+                            <button disabled=""><i class="fas fa-exclamation-triangle"></i> SIGMET</button>
+                           <button disabled=""><i class="fas fa-bolt"></i> WAREP</button>
+                            <button disabled=""><i class="fas fa-wind"></i> КН-04</button>
+                            <button disabled=""><i class="fas fa-cloud-meatball"></i> AIRMET</button>
                         </nav>
-
-                        <div id="dev-message" class="instructions" style="display: none; text-align: center; font-weight: 700;">
-                            В разработке
-                        </div>
-
                         <nav class="mode-selector" role="tablist">
                             <div class="mode-btn active" data-mode="decode" aria-selected="true" role="tab">
                                 <i class="fas fa-search"></i>
@@ -76,7 +71,7 @@
                                 <div class="instructions" id="decode-instructions">
                                     <strong>Режим авторасшифровки:</strong> Введите код в поле ниже и нажмите "Расшифровать".
                                     <ul>
-                                        <li title="Международный код для текущей погоды на аэродроме">Поддержка METAR: Полная расшифро...</li>
+                                        <li title="Международный код для текущей погоды на аэродроме">Поддержка METAR: Полная расшифровка групп</li>
                                         <li title="Прогноз погоды на аэродроме">TAF: Включая изменения FM/TEMPO.</li>
                                         <li title="Синоптический код для наземных наблюдений">KN-01: Базовая расшифровка.</li>
                                         <li>И другие коды с подсказками.</li>
@@ -96,7 +91,10 @@
                                 <div id="loading-decode" class="loading" aria-live="polite" style="display: none;"><i class="fas fa-spinner fa-spin"></i> Обработка...</div>
                                 <div class="input-group">
                                     <label>Результат расшифровки:</label>
-                                    <div class="result" id="decode-result">Здесь появится расшифровка кода...</div>
+                                    <div class="result" id="decode-result">Режим авторасшифровки METAR:
+Вставьте код — получите полную расшифровку.
+Поддерживается: ветер, видимость, RVR, погода, облачность, температура, давление, тренд, RMK.
+</div>
                                 </div>
                             </div>
 
@@ -188,7 +186,7 @@
                 <aside class="sidebar">
                     <h3>Справочная информация</h3>
                     <div class="instructions" id="sidebar-hints">
-                        <strong>METAR</strong> - авиационная регулярная сводка погоды. <span title="Подсказка: CAVOK означает видимость >10км">...</span>
+                        <strong>METAR</strong> - название кода для передачи регулярных метеорологических сводок погоды по аэродрому. <span title="Подсказка: CAVOK означает видимость >10км"></span>
                     </div>
                     <div class="accordion">
                         <h4 onclick="toggleAccordion(this)" aria-expanded="false" role="button"><i class="fas fa-wind"></i> Ветер</h4>
@@ -222,9 +220,9 @@ NOSIG - Без значительных изменений
                     <button class="btn" data-game="speed-decode">Скоростная расшифровка</button>
                     <button class="btn" data-game="code-builder">Собери код</button>
                     <button class="btn" data-game="quiz-bowl">Викторина</button>
-                    <button class="btn" data-game="scenario-pilot">Сценарий полёта</button>
+                    <button class="btn" data-game="scenario-pilot">Сценарий ситуаций</button>
                     <button class="btn" data-game="taf-predictor">Прогнозатор</button>
-                    <button class="btn" data-game="flight-planner">Flight Planner</button>
+                    <button class="btn" data-game="flight-planner">Сценарий Полет</button>
                     <button class="btn" data-game="weather-slot">Автомат погоды</button>
                 </div>
 
@@ -253,7 +251,8 @@ NOSIG - Без значительных изменений
 
                     <div>
                         <button class="btn" id="check-btn" disabled>Проверить</button>
-                        <button class="btn btn-secondary" onclick="showHintFindError()">Подсказка</button>
+                       <button class="btn btn-secondary btn-hint" onclick="showHintFindError()">
+                        <i class="fas fa-lightbulb"></i> Подсказка</button>
                     </div>
                     <div id="result"></div>
                 </div>
@@ -277,7 +276,8 @@ NOSIG - Без значительных изменений
                     <input type="text" id="guess-input" placeholder="Введите код">
                     <button class="btn btn-secondary" onclick="document.getElementById('guess-input').value = '';">Очистить</button>
                     <button class="btn" id="guess-check" disabled>Проверить</button>
-                    <button class="btn btn-secondary" onclick="showHintGuessCode()">Подсказка</button>
+                    <button class="btn btn-secondary btn-hint" onclick="showHintGuessCode()">
+                      <i class="fas fa-lightbulb"></i>Подсказка</button>
                     <button class="btn" onclick="startGuessGame()">Новое задание</button>
                     <div id="guess-result"></div>
                 </div>
@@ -304,7 +304,8 @@ NOSIG - Без значительных изменений
                         <button type="button" class="btn btn-secondary" onclick="clearSpeedDecode()">Очистить</button>
                     </form>
                     <div id="speed-result"></div>
-                    <button class="btn btn-secondary" onclick="showHintSpeedDecode()">Подсказка</button>
+                  <button class="btn btn-secondary btn-hint" onclick="showHintSpeedDecode()">
+                      <i class="fas fa-lightbulb"></i> Подсказка</button>
                     <button class="btn" onclick="startSpeedDecode()">Новая игра</button>
                     <button class="btn" id="new-task-speed-decode" style="display: none;" onclick="startSpeedDecode()">Новая задача</button>
                 </div>
@@ -317,7 +318,6 @@ NOSIG - Без значительных изменений
                         <div>Уровень: <span id="builder-level" class="level">1</span></div>
                         <div>Время: <span id="builder-timer" class="level">30</span></div>
                     </div>
-                    <i class="fas fa-cog settings-icon" onclick="openSettings('code-builder')"></i>
                     <div id="builder-description" class="instructions">Нажмите "Новая игра"</div>
 
                     <div style="text-align: left; font-weight: bold; margin-bottom: 5px;">Банк кодов:</div>
@@ -334,7 +334,8 @@ NOSIG - Без значительных изменений
                     <button class="btn btn-secondary" onclick="clearBuilderZone()">Очистить</button>
                     <div id="builder-result"></div>
                     <br>
-                    <button class="btn btn-secondary" onclick="showHintCodeBuilder()">Подсказка</button>
+                 <button class="btn btn-secondary btn-hint" onclick="showHintCodeBuilder()">
+                     <i class="fas fa-lightbulb"></i> Подсказка</button>
                     <button class="btn" onclick="startCodeBuilder()">Новая игра</button>
                     <button class="btn" id="new-task-code-builder" style="display: none;" onclick="startCodeBuilder()">Новая задача</button>
                 </div>
@@ -354,7 +355,8 @@ NOSIG - Без значительных изменений
                     <div class="quiz-options" id="quiz-options"></div>
                     <button class="btn" onclick="checkQuiz()">Проверить</button>
                     <div id="quiz-result"></div>
-                    <button class="btn btn-secondary" onclick="showHintQuizBowl()">Подсказка</button>
+                  <button class="btn btn-secondary btn-hint" onclick="showHintQuizBowl()">
+                      <i class="fas fa-lightbulb"></i> Подсказка</button>
                     <button class="btn" onclick="startQuizBowl()">Новая серия</button>
                     <button class="btn" id="new-task-quiz-bowl" style="display: none;" onclick="nextQuizQuestion()">Новая задача</button>
                 </div>
@@ -383,7 +385,8 @@ NOSIG - Без значительных изменений
                     <button class="btn btn-secondary" onclick="document.getElementById('taf-answer').value = '';">Очистить</button>
                     <button class="btn" onclick="checkTafPredictor()">Проверить</button>
                     <div id="taf-result"></div>
-                    <button class="btn btn-secondary" onclick="showHintTafPredictor()">Подсказка</button>
+               <button class="btn btn-secondary btn-hint" onclick="showHintTafPredictor()">
+                   <i class="fas fa-lightbulb"></i> Подсказка</button>
                     <button class="btn" onclick="startTafPredictor()">Новый прогноз</button>
                     <button class="btn" id="new-task-taf-predictor" style="display: none;" onclick="startTafPredictor()">Новая задача</button>
                 </div>
@@ -407,7 +410,8 @@ NOSIG - Без значительных изменений
                     </select>
                     <button class="btn" onclick="checkFlightPlanner()">Проверить</button>
                     <div id="planner-result"></div>
-                    <button class="btn btn-secondary" onclick="showHintFlightPlanner()">Подсказка</button>
+                  <button class="btn btn-secondary btn-hint" onclick="showHintFlightPlanner()">
+                      <i class="fas fa-lightbulb"></i> Подсказка</button>
                     <button class="btn" onclick="startFlightPlanner()">Новый маршрут</button>
                 </div>
 
@@ -446,6 +450,7 @@ NOSIG - Без значительных изменений
         </section>
 
         <section id="page-help" class="page" role="tabpanel">
+
             <div class="main-content">
                 <h2>Справочные документы</h2>
                 <ul class="help-list">
@@ -458,6 +463,198 @@ NOSIG - Без значительных изменений
                     <li><a href="http://elib.rshu.ru/files_books/pdf/rid_acbfa3068d234e0faeda7cd3d0510dee.pdf">ПОСОБИЕ ПО СИНОПТИЧЕСКОЙ МЕТЕОРОЛОГИИ </a></li>
                     <li><a href="https://ohranatruda.ru/upload/iblock/8ad/4293756585.pdf?ysclid=mia214te2t824132625">Инструкция по подготовке и передаче штормовых сообщений наблюдательными подразделениями</a></li>
                 </ul>
+            </div>
+        </section>
+<section id="page-exam" class="page" role="tabpanel">
+    <!-- Статический контент -->
+    <div class="history-controls">
+        <button class="btn" onclick="clearHistory()">
+            <i class="fas fa-trash"></i> ОЧИСТИТЬ ИСТОРИЮ
+        </button>
+        <button class="btn" onclick="showCertificates()">
+            <i class="fas fa-award"></i> МОИ СЕРТИФИКАТЫ
+        </button>
+        <button class="btn btn-secondary" onclick="toggleExaminerMode()">
+            <i class="fas fa-chalkboard-teacher"></i> РЕЖИМ ЭКЗАМЕНАТОРА
+        </button>
+        <button class="btn btn-secondary" onclick="toggleSynopticMode()">
+            <i class="fas fa-map-marked-alt"></i> РЕЖИМ СИНОПТИКА
+        </button>
+    </div>
+    
+    <!-- Контейнер для динамического контента экзамена -->
+    <div id="exam-dynamic-content"></div>
+    
+    <!-- Режим экзаменатора -->
+    <div id="examiner-mode" class="examiner-mode" style="display: none;">
+                <h3><i class="fas fa-chalkboard-teacher"></i> РЕЖИМ ЭКЗАМЕНАТОРА</h3>
+                <p>Создавайте собственные тесты и задания для студентов</p>
+                
+                <div class="examiner-controls">
+                    <div class="examiner-control">
+                        <h4>Создать новый вопрос</h4>
+                        <div class="question-builder">
+                            <select id="question-type" onchange="changeQuestionType()">
+                                <option value="test">Тестовый вопрос</option>
+                                <option value="practice">Практическое задание</option>
+                                <option value="decode">Расшифровка кода</option>
+                            </select>
+                            
+                            <textarea id="question-text" placeholder="Текст вопроса..." rows="3"></textarea>
+                            
+                            <div id="test-options" style="display: block;">
+                                <h5>Варианты ответов:</h5>
+                                <div id="options-container">
+                                    <div class="option-row">
+                                        <input type="radio" name="correct-option" value="0">
+                                        <input type="text" placeholder="Вариант ответа 1" class="option-input">
+                                        <button class="btn btn-sm" onclick="removeOption(this)"><i class="fas fa-times"></i></button>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm" onclick="addOption()"><i class="fas fa-plus"></i> Добавить вариант</button>
+                            </div>
+                            
+                            <div id="practice-fields" style="display: none;">
+                                <textarea id="practice-description" placeholder="Описание погоды..." rows="3"></textarea>
+                                <input type="text" id="practice-answer" placeholder="Правильный код">
+                            </div>
+                            
+                            <div id="decode-fields" style="display: none;">
+                                <input type="text" id="decode-code" placeholder="Код для расшифровки">
+                                <textarea id="decode-answer" placeholder="Правильная расшифровка" rows="2"></textarea>
+                            </div>
+                            
+                            <button class="btn" onclick="saveQuestion()"><i class="fas fa-save"></i> Сохранить вопрос</button>
+                        </div>
+                    </div>
+                    
+                    <div class="examiner-control">
+                        <h4>Мои вопросы</h4>
+                        <div class="question-list" id="custom-questions-list">
+                            <p style="text-align: center; color: #777;">Нет сохраненных вопросов</p>
+                        </div>
+                        <button class="btn" onclick="createCustomTest()"><i class="fas fa-file-alt"></i> Создать тест из выбранных</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Режим синоптика -->
+            <div id="synoptic-mode" class="synoptic-mode" style="display: none;">
+                <h3><i class="fas fa-map-marked-alt"></i> РЕЖИМ СИНОПТИКА</h3>
+                <p>Анализ синоптических карт погоды</p>
+                
+                <div class="map-controls">
+                    <button class="btn" onclick="generateWeatherMap()">
+                        <i class="fas fa-sync"></i> НОВАЯ КАРТА
+                    </button>
+                    <button class="btn btn-secondary" onclick="toggleMapGrid()">
+                        <i class="fas fa-th"></i> СЕТКА
+                    </button>
+                    <button class="btn" onclick="analyzeMap()">
+                        <i class="fas fa-search"></i> АНАЛИЗИРОВАТЬ
+                    </button>
+                </div>
+                
+                <div class="map-tools">
+                    <button class="map-tool active" data-tool="select">✥ Выбор</button>
+                    <button class="map-tool" data-tool="cyclone">🌀 Циклон</button>
+                    <button class="map-tool" data-tool="anticyclone">↻ Антициклон</button>
+                    <button class="map-tool" data-tool="front">━ Фронт</button>
+                    <button class="map-tool" data-tool="station">⛅ Станция</button>
+                </div>
+                
+                <div class="weather-map" id="weather-map">
+                    <div class="map-grid" id="map-grid"></div>
+                </div>
+                
+                <div class="forecast-panel">
+                    <div class="forecast-card">
+                        <h4>Анализ карты</h4>
+                        <div id="map-analysis">Нажмите "Анализировать"</div>
+                    </div>
+                    <div class="forecast-card">
+                        <h4>Прогноз на 24 часа</h4>
+                        <div id="weather-forecast">Генерируется...</div>
+                    </div>
+                    <div class="forecast-card">
+                        <h4>Рекомендации</h4>
+                        <div id="weather-recommendations"></div>
+                    </div>
+                </div>
+                
+                <div class="analysis-tool" id="analysis-tool" style="display: none;">
+                    <h5>Инструмент анализа</h5>
+                    <div id="tool-content"></div>
+                </div>
+            </div>
+            
+            <!-- История попыток -->
+            <div class="exam-history">
+                <h3><i class="fas fa-history"></i> ИСТОРИЯ ПОПЫТОК И ПРОГРЕСС</h3>
+                
+                <div class="history-stats">
+                    <div class="history-stat">
+                        <div class="stat-value" id="total-attempts">0</div>
+                        <div class="stat-label">Всего попыток</div>
+                    </div>
+                    <div class="history-stat">
+                        <div class="stat-value" id="average-score">0%</div>
+                        <div class="stat-label">Средний результат</div>
+                    </div>
+                    <div class="history-stat">
+                        <div class="stat-value" id="total-time">0ч</div>
+                        <div class="stat-label">Общее время</div>
+                    </div>
+                    <div class="history-stat">
+                        <div class="stat-value" id="certificates-count">0</div>
+                        <div class="stat-label">Сертификатов</div>
+                    </div>
+                </div>
+                
+                <div class="history-table-container">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Тип</th>
+                                <th>Результат</th>
+                                <th>Время</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 20px; color: #777;">
+                                    История попыток пуста. Пройдите первую контрольную работу!
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="btn" onclick="exportHistory()">
+                        <i class="fas fa-download"></i> ЭКСПОРТ ИСТОРИИ
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Модальные окна -->
+            <div id="detailed-results-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeDetailedResults()">&times;</span>
+                    <h2><i class="fas fa-chart-pie"></i> Детальная статистика</h2>
+                    <div id="detailed-results-content"></div>
+                </div>
+            </div>
+            
+            <div id="certificates-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeCertificates()">&times;</span>
+                    <h2><i class="fas fa-trophy"></i> Мои сертификаты</h2>
+                    <div id="certificates-content"></div>
+                </div>
             </div>
         </section>
 
@@ -508,10 +705,29 @@ NOSIG - Без значительных изменений
 <script src="gameData.js"></script>
 <script src="meteoCoder.js"></script>
 <script src="miniGames.js"></script>
+<script src="exam.js"></script>
+
+<script>
+    // Инициализация страницы экзамена при загрузке
+    document.addEventListener('DOMContentLoaded', function() {
+        const examPage = document.getElementById('page-exam');
+        if (examPage && examPage.classList.contains('active')) {
+            // Инициализируем только если страница активна
+            initExamPage();
+        }
+    });
+    
+    // Инициализация при переключении вкладок
+    document.querySelectorAll('.top-menu button[data-page]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (this.dataset.page === 'exam') {
+                // Даем время для отображения страницы
+                setTimeout(() => {
+                    initExamPage();
+                }, 100);
+            }
+        });
+    });
+</script>
 </body>
-
-
 </html>
-
-
-

@@ -1,9 +1,39 @@
+function toggleAccordion(element) {
+    const panel = element.nextElementSibling;
+    const isExpanded = element.getAttribute('aria-expanded') === 'true';
+    
+    if (panel.style.display === "block") {
+        panel.style.display = "none";
+        element.setAttribute('aria-expanded', 'false');
+        element.querySelector('i').classList.remove('fa-chevron-down');
+        element.querySelector('i').classList.add('fa-chevron-right');
+    } else {
+        panel.style.display = "block";
+        element.setAttribute('aria-expanded', 'true');
+        element.querySelector('i').classList.remove('fa-chevron-right');
+        element.querySelector('i').classList.add('fa-chevron-down');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const accordionHeaders = document.querySelectorAll('.accordion h4');
+    accordionHeaders.forEach(header => {
+        header.setAttribute('aria-expanded', 'false');
+        if (!header.querySelector('i')) {
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-chevron-right';
+            header.insertBefore(icon, header.firstChild);
+            header.innerHTML = ' ' + header.innerHTML;
+        }
+    });
+});
+
 let currentEncodeExercise = null;
 let trainerStats = JSON.parse(localStorage.getItem('trainerStats') || '{"level":1,"totalDecoded":0,"correctDecoded":0,"sessionDecoded":0,"sessionCorrect":0,"errorsByType":{"metar":0,"kn01":0,"taf":0,"gamet":0,"sigmet":0,"warep":0,"kn04":0,"airmet":0}}');
-let currentPracticeCode = null;
 let hintStep = 0;
-
+let currentPracticeCode = null;
 let appSettings = JSON.parse(localStorage.getItem('meteoCoderSettings') || '{"theme":"light","fontSize":"normal","animations":true}');
+
 
 const WEATHER_CODES = {
   'MI': 'мелкий', 'BC': 'пятнами', 'PR': 'частично', 'DR': 'низкий перенос', 'BL': 'высокий перенос',
@@ -32,11 +62,12 @@ const TREND_TYPES = {
   'AT': 'в указанное время'
 };
 
+// Улучшенная система токенов с поддержкой американского формата
 const TOKENS = {
   TYPE: /^(METAR|SPECI|TAF|TAF AMD|TAF COR)$/,
   ICAO: /^[A-Z]{4}$/,
   TIME: /^\d{6}Z$/,
-  PERIOD: /^\d{4}\/\d{4}$/,
+  PERIOD: /^\d{4}\/\d{4}$/, // Исправлено: 0518/0624 вместо 051800/062400
   WIND: /^(\d{3}|VRB)(\d{2,3})(G\d{2,3})?(KT|MPS|KMH)$/,
   VAR_WIND: /^\d{3}V\d{3}$/,
   VIS: /^(CAVOK|(\d{4})|(\d{4}[NSEW])|(\d{1,2}SM)|(\d{1,2}\s?\d\/\dSM)|(\d{1,2})|(M?\d{1,2}\/\d{1,2}))$/,
@@ -46,7 +77,7 @@ const TOKENS = {
   TEMP: /^(M?\d{2})\/(M?\d{2})$/,
   QNH: /^(Q|A)(\d{4})$/,
   TREND: /^(NOSIG|BECMG|TEMPO)$/,
-  TREND_TIME: /^(FM|TL|AT)(\d{4})?$/, 
+  TREND_TIME: /^(FM|TL|AT)(\d{4})?$/, // Американский формат без Z
   PROB: /^PROB(\d{2})$/,
   COLOR: /^(BLU|WHT|GRN|YLO|AMB|RED|BLACK)$/,
   RUNWAY_STATE: /^(\d{2}|88|99)(\d{2}|\/\/)(\d{2}|\/\/)(\d{2}|\/\/)(\d{2}|\/\/)(\d{1}|\/)$/,
@@ -64,7 +95,7 @@ const TOKENS = {
   CEILING: /^CIG\s?\d+/,
   OBSCURATION: /^[A-Z]+\s?[A-Z]+\s?OBSC$/,
   SEALEVEL_PRESSURE: /^SLP\d{3}$/,
- 
+  // Дополнительные
   T_MIN_MAX: /^(TX|TN)(M?\d{2})\/(\d{4})Z$/,
   UNKNOWN: /^.*$/
 };
@@ -184,22 +215,6 @@ class BaseParser {
   peek(ahead = 0) { return this.tokens[this.pos + ahead] || null; }
   hasMore() { return this.pos < this.tokens.length; }
 
-  expect(types, optional = false) {
-    const token = this.current();
-    if (!token || !types.includes(token.type)) {
-      if (!optional) this.errors.push(`Ожидалось ${types.join(' или ')}, получено: ${token?.value || 'конец'}`);
-      return null;
-    }
-    return this.consume();
-  }
-
-  optional(type) {
-    if (this.current()?.type === type) {
-      return this.consume();
-    }
-    return null;
-  }
-
   detectAmericanFormat() {
     // Проверяем признаки американского формата
     const americanIndicators = [
@@ -216,7 +231,7 @@ class BaseParser {
 
   parseWind(token) {
     const match = token.value.match(TOKENS.WIND);
-    if (!match) return token.value;
+    if (!match) return `Ветер: ${token.value} (нестандартный формат)`;
     
     const [, direction, speed, gust, unit] = match;
     
@@ -295,7 +310,7 @@ class BaseParser {
 
   parseClouds(token) {
     const match = token.value.match(TOKENS.CLOUDS);
-    if (!match) return token.value;
+    if (!match) return `Облачность: ${token.value} (нестандартный формат)`;
     
     const [, cover, height, type] = match;
     const heightMeters = parseInt(height) * 30;
@@ -318,7 +333,7 @@ class BaseParser {
 
   parseTemperature(token) {
     const match = token.value.match(TOKENS.TEMP);
-    if (!match) return token.value;
+    if (!match) return `Температура: ${token.value} (нестандартный формат)`;
     
     let [, temp, dew] = match;
     
@@ -330,7 +345,7 @@ class BaseParser {
 
   parsePressure(token) {
     const match = token.value.match(TOKENS.QNH);
-    if (!match) return token.value;
+    if (!match) return `Давление: ${token.value} (нестандартный формат)`;
     
     const [, type, value] = match;
     
@@ -339,158 +354,6 @@ class BaseParser {
     } else {
       const inches = `${value.substring(0, 2)}.${value.substring(2)}`;
       return `Давление: ${inches} inHg`;
-    }
-  }
-}
-
-class MetarParser extends BaseParser {
-  parse() {
-    try {
-      this.detectAmericanFormat();
-      if (this.isAmericanFormat) {
-        this.result.push('Формат: Американский (US)');
-      }
-
-      // Тип сообщения (опционально)
-      this.optional('TYPE');
-      
-      // COR/AMD (опционально)
-      const correction = this.optional('COR') || this.optional('AMD');
-      if (correction) {
-        this.result.push(`Тип: ${correction.value === 'COR' ? 'Корректированное' : 'Амендированное'} сообщение`);
-      }
-      
-      // ICAO аэродрома
-      const icao = this.expect(['ICAO']);
-      if (icao) this.result.push(`Аэродром: ${icao.value}`);
-      
-      // Время наблюдения
-      const time = this.expect(['TIME']);
-      if (time) this.result.push(this.parseTime(time.value));
-      
-      // AUTO (опционально)
-      if (this.optional('AUTO')) {
-        this.result.push('Автоматическое наблюдение');
-      }
-      
-      // Ветер
-      const wind = this.expect(['WIND']);
-      if (wind) this.result.push(this.parseWind(wind));
-      
-      // Вариация ветра (опционально)
-      const varWind = this.optional('VAR_WIND');
-      if (varWind) {
-        this.result.push(`Вариация ветра: от ${varWind.value.substring(0, 3)}° до ${varWind.value.substring(4)}°`);
-      }
-      
-      // Видимость
-      const visibility = this.expect(['VIS']);
-      if (visibility) this.result.push(this.parseVisibility(visibility));
-      
-      // Американские форматы видимости
-      this.parseAmericanVisibility();
-      
-      // RVR (может быть несколько)
-      while (this.current()?.type === 'RVR') {
-        const rvr = this.consume();
-        this.result.push(this.parseRVR(rvr.value));
-      }
-      
-      // Погодные явления (может быть несколько)
-      while (this.current()?.type === 'WX') {
-        const weather = this.consume();
-        this.result.push(`Погода: ${WeatherDecoder.decode(weather.value)}`);
-      }
-      
-      // Облачность (может быть несколько слоев)
-      while (this.current()?.type === 'CLOUDS') {
-        const cloud = this.consume();
-        this.result.push(this.parseClouds(cloud));
-      }
-      
-      // Температура/точка росы
-      const temp = this.expect(['TEMP']);
-      if (temp) this.result.push(this.parseTemperature(temp));
-      
-      // Давление
-      const pressure = this.expect(['QNH']);
-      if (pressure) this.result.push(this.parsePressure(pressure));
-      
-      // Американские дополнительные группы
-      this.parseAmericanGroups();
-      
-      // Дополнительные группы (RE, WS, и т.д.)
-      this.parseAdditionalGroups();
-      
-      // Тренд-прогнозы
-      this.parseTrends();
-      
-      // Замечания
-      this.parseRemarks();
-      
-      return {
-        text: this.result.join('\n'),
-        errors: this.errors,
-        success: this.errors.length === 0
-      };
-      
-    } catch (error) {
-      this.errors.push(`Ошибка парсинга: ${error.message}`);
-      return {
-        text: this.result.join('\n'),
-        errors: this.errors,
-        success: false
-      };
-    }
-  }
-
-  parseAmericanVisibility() {
-    // TWR VIS
-    if (this.current()?.type === 'TOWER_VIS') {
-      const twrVis = this.consume();
-      if (this.current()?.type === 'VIS') {
-        const vis = this.consume();
-        this.result.push(`Видимость с вышки: ${this.parseVisibility(vis)}`);
-      }
-    }
-    
-    // SFC VIS
-    if (this.current()?.type === 'SURFACE_VIS') {
-      const sfcVis = this.consume();
-      if (this.current()?.type === 'VIS') {
-        const vis = this.consume();
-        this.result.push(`Приземная видимость: ${this.parseVisibility(vis)}`);
-      }
-    }
-    
-    // VIS 2nd location
-    if (this.current()?.type === 'VIS_2ND_LOC') {
-      const vis2nd = this.consume();
-      this.result.push(`Видимость во втором месте: ${vis2nd.value.replace(/_/g, ' ')}`);
-    }
-  }
-
-  parseAmericanGroups() {
-    // Wind Shift
-    if (this.current()?.type === 'WIND_SHIFT') {
-      const wshft = this.consume();
-      const time = wshft.value.replace('WSHFT', '');
-      this.result.push(`Сдвиг ветра в ${time.substring(0, 2)}:${time.substring(2)} UTC`);
-    }
-    
-    // Ceiling
-    if (this.current()?.type === 'CEILING') {
-      const cig = this.consume();
-      const height = cig.value.replace('CIG_', '');
-      this.result.push(`Нижняя граница облаков: ${parseInt(height) * 30} м (${height}00 ft)`);
-    }
-    
-    // Sea Level Pressure
-    if (this.current()?.type === 'SEALEVEL_PRESSURE') {
-      const slp = this.consume();
-      const pressure = slp.value.replace('SLP', '');
-      const hPa = pressure.startsWith('9') ? `9${pressure.substring(1)}` : `10${pressure.substring(1)}`;
-      this.result.push(`Давление на уровне моря: ${hPa} гПа`);
     }
   }
 
@@ -503,7 +366,7 @@ class MetarParser extends BaseParser {
 
   parseRVR(rvrStr) {
     const match = rvrStr.match(TOKENS.RVR);
-    if (!match) return `RVR: ${rvrStr}`;
+    if (!match) return `RVR: ${rvrStr} (нестандартный формат)`;
     
     const [, runway, , prefix, value, , varPrefix, varValue, trend] = match;
     
@@ -530,103 +393,205 @@ class MetarParser extends BaseParser {
     return result;
   }
 
-  parseAdditionalGroups() {
-    while (this.hasMore()) {
-      const current = this.current();
-      
-      // Recent Weather (REww)
-      if (current.value.startsWith('RE')) {
-        const re = this.consume();
-        this.result.push(`Недавняя погода: ${WeatherDecoder.decode(re.value.substring(2))}`);
-        continue;
-      }
-      
-      // Wind Shear (WS RWYxx)
-      if (current.value.startsWith('WS')) {
-        const ws = this.consume();
-        this.result.push(`Сдвиг ветра: ${ws.value}`);
-        continue;
-      }
-      
-      // Runway State
-      if (current.type === 'RUNWAY_STATE') {
-        const runway = this.consume();
-        this.result.push(`Состояние ВПП: ${runway.value}`);
-        continue;
-      }
-      
-      // Color Codes
-      if (current.type === 'COLOR') {
-        const color = this.consume();
-        this.result.push(`Цветовой код: ${color.value}`);
-        continue;
-      }
-      
-      break;
-    }
-  }
-
-  parseTrends() {
-    while (this.hasMore() && ['TREND', 'TREND_TIME', 'BECMG', 'TEMPO', 'NOSIG'].includes(this.current()?.type)) {
-      const trend = this.consume();
-      
-      if (trend.value === 'NOSIG') {
-        this.result.push('Прогноз: значительных изменений не ожидается');
-        continue;
-      }
-      
-      let trendText = `Прогноз (${TREND_TYPES[trend.value] || trend.value}): `;
-      
-      // Временные параметры для FM/TL
-      if (trend.type === 'TREND_TIME') {
-        const timeMatch = trend.value.match(/^(FM|TL|AT)(\d{4})$/);
-        if (timeMatch) {
-          const [, type, time] = timeMatch;
-          trendText += `${this.parseTrendTime(time)} `;
-        }
-      }
-      
-      // Парсим группы внутри тренда
-      const trendGroups = [];
-      while (this.hasMore() && !['TREND', 'TREND_TIME', 'RMK'].includes(this.current()?.type)) {
-        const group = this.consume();
-        
-        if (group.type === 'WIND') {
-          trendGroups.push(this.parseWind(group));
-        } else if (group.type === 'VIS') {
-          trendGroups.push(this.parseVisibility(group));
-        } else if (group.type === 'WX') {
-          trendGroups.push(`Погода: ${WeatherDecoder.decode(group.value)}`);
-        } else if (group.type === 'CLOUDS') {
-          trendGroups.push(this.parseClouds(group));
-        } else {
-          trendGroups.push(group.value);
-        }
-      }
-      
-      if (trendGroups.length > 0) {
-        trendText += trendGroups.join('; ');
-      }
-      
-      this.result.push(trendText);
-    }
-  }
-
   parseTrendTime(timeStr) {
     const hour = timeStr.substring(0, 2);
     const minute = timeStr.substring(2, 4);
     return `${hour}:${minute} UTC`;
   }
+}
 
-  parseRemarks() {
-    if (this.optional('RMK')) {
-      const remarks = [];
+class MetarParser extends BaseParser {
+  parse() {
+    try {
+      this.detectAmericanFormat();
+      if (this.isAmericanFormat) {
+        this.result.push('Формат: Американский (US)');
+      }
+
+      let inTrend = false;
+      let currentTrend = '';
+      let inRemarks = false;
+      let remarks = [];
+
       while (this.hasMore()) {
-        remarks.push(this.consume().value);
+        let token = this.consume();
+
+        if (inRemarks) {
+          remarks.push(token.value);
+          continue;
+        }
+
+        if (token.type === 'RMK') {
+          inRemarks = true;
+          continue;
+        }
+
+        if (token.type === 'NOSIG') {
+          if (currentTrend) this.result.push(currentTrend.trim());
+          this.result.push('Прогноз: значительных изменений не ожидается');
+          currentTrend = '';
+          inTrend = false;
+          continue;
+        }
+
+        if (['TREND', 'TREND_TIME', 'BECMG', 'TEMPO'].includes(token.type)) {
+          if (currentTrend) this.result.push(currentTrend.trim());
+          currentTrend = `Прогноз (${TREND_TYPES[token.value] || token.value}): `;
+          if (token.type === 'TREND_TIME') {
+            const timeMatch = token.value.match(/^(FM|TL|AT)(\d{4})$/);
+            if (timeMatch) {
+              const [, type, time] = timeMatch;
+              currentTrend += `${type === 'FM' ? 'с' : type === 'TL' ? 'до' : 'в'} ${this.parseTrendTime(time)} `;
+            }
+          }
+          inTrend = true;
+          continue;
+        }
+
+        if (inTrend) {
+          switch (token.type) {
+            case 'WIND':
+              currentTrend += this.parseWind(token) + '; ';
+              break;
+            case 'VAR_WIND':
+              currentTrend += `Вариация ветра: от ${token.value.substring(0, 3)}° до ${token.value.substring(4)}°; `;
+              break;
+            case 'VIS':
+              currentTrend += this.parseVisibility(token) + '; ';
+              break;
+            case 'RVR':
+              currentTrend += this.parseRVR(token.value) + '; ';
+              break;
+            case 'WX':
+              currentTrend += `Погода: ${WeatherDecoder.decode(token.value)}; `;
+              break;
+            case 'CLOUDS':
+              currentTrend += this.parseClouds(token) + '; ';
+              break;
+            case 'TEMP':
+              currentTrend += this.parseTemperature(token) + '; ';
+              break;
+            case 'QNH':
+              currentTrend += this.parsePressure(token) + '; ';
+              break;
+            default:
+              currentTrend += `Дополнительная: ${token.value}; `;
+              break;
+          }
+          continue;
+        }
+
+        // Основная часть
+        switch (token.type) {
+          case 'TYPE':
+            this.result.push(`Тип: ${token.value}`);
+            break;
+          case 'COR':
+            this.result.push(`Тип: Корректированное сообщение`);
+            break;
+          case 'AMD':
+            this.result.push(`Тип: Амендированное сообщение`);
+            break;
+          case 'ICAO':
+            this.result.push(`Аэродром: ${token.value}`);
+            break;
+          case 'TIME':
+            this.result.push(this.parseTime(token.value));
+            break;
+          case 'AUTO':
+            this.result.push('Автоматическое наблюдение');
+            break;
+          case 'WIND':
+            this.result.push(this.parseWind(token));
+            break;
+          case 'VAR_WIND':
+            this.result.push(`Вариация ветра: от ${token.value.substring(0, 3)}° до ${token.value.substring(4)}°`);
+            break;
+          case 'VIS':
+            this.result.push(this.parseVisibility(token));
+            break;
+          case 'RVR':
+            this.result.push(this.parseRVR(token.value));
+            break;
+          case 'WX':
+            this.result.push(`Погода: ${WeatherDecoder.decode(token.value)}`);
+            break;
+          case 'CLOUDS':
+            this.result.push(this.parseClouds(token));
+            break;
+          case 'TEMP':
+            this.result.push(this.parseTemperature(token));
+            break;
+          case 'QNH':
+            this.result.push(this.parsePressure(token));
+            break;
+          case 'COLOR':
+            this.result.push(`Цветовой код: ${token.value}`);
+            break;
+          case 'RUNWAY_STATE':
+            this.result.push(`Состояние ВПП: ${token.value}`);
+            break;
+          case 'WIND_SHIFT':
+            const time = token.value.replace('WSHFT', '');
+            this.result.push(`Сдвиг ветра в ${time.substring(0, 2)}:${time.substring(2)} UTC`);
+            break;
+          case 'TOWER_VIS':
+            if (this.peek()?.type === 'VIS') {
+              const vis = this.consume();
+              this.result.push(`Видимость с вышки: ${this.parseVisibility(vis)}`);
+            } else {
+              this.result.push(`Дополнительная группа: ${token.value}`);
+            }
+            break;
+          case 'SURFACE_VIS':
+            if (this.peek()?.type === 'VIS') {
+              const vis = this.consume();
+              this.result.push(`Приземная видимость: ${this.parseVisibility(vis)}`);
+            } else {
+              this.result.push(`Дополнительная группа: ${token.value}`);
+            }
+            break;
+          case 'VIS_2ND_LOC':
+            this.result.push(`Видимость во втором месте: ${token.value.replace(/_/g, ' ')}`);
+            break;
+          case 'CEILING':
+            const height = token.value.replace('CIG', '');
+            this.result.push(`Нижняя граница облаков: ${parseInt(height) * 30} м (${height}00 ft)`);
+            break;
+          case 'SEALEVEL_PRESSURE':
+            const pressure = token.value.replace('SLP', '');
+            const hPa = pressure.startsWith('9') ? `9${pressure}` : `10${pressure}`;
+            this.result.push(`Давление на уровне моря: ${hPa} гПа`);
+            break;
+          case 'UNKNOWN':
+          default:
+            if (token.value.startsWith('RE')) {
+              this.result.push(`Недавняя погода: ${WeatherDecoder.decode(token.value.substring(2))}`);
+            } else if (token.value.startsWith('WS')) {
+              this.result.push(`Сдвиг ветра: ${token.value}`);
+            } else {
+              this.result.push(`Дополнительная группа: ${token.value}`);
+            }
+            break;
+        }
       }
-      if (remarks.length > 0) {
-        this.result.push(`Замечания: ${remarks.join(' ')}`);
-      }
+
+      if (currentTrend) this.result.push(currentTrend.trim());
+      if (remarks.length > 0) this.result.push(`Замечания: ${remarks.join(' ')}`);
+
+      return {
+        text: this.result.join('\n'),
+        errors: this.errors,
+        success: this.errors.length === 0
+      };
+      
+    } catch (error) {
+      this.errors.push(`Ошибка парсинга: ${error.message}`);
+      return {
+        text: this.result.join('\n'),
+        errors: this.errors,
+        success: false
+      };
     }
   }
 }
@@ -639,39 +604,150 @@ class TafParser extends BaseParser {
         this.result.push('Формат: Американский (US)');
       }
 
-      // Тип сообщения
-      const type = this.expect(['TYPE']);
-      if (type) this.result.push(`Тип: ${type.value}`);
-      
-      // COR/AMD/CNL
-      const modifier = this.optional('COR') || this.optional('AMD') || this.optional('CNL');
-      if (modifier) {
-        const modText = {
-          'COR': 'Корректированный',
-          'AMD': 'Амендированный', 
-          'CNL': 'Отмененный'
-        }[modifier.value];
-        this.result.push(`Статус: ${modText}`);
+      let inTrend = false;
+      let currentTrend = '';
+      let probability = '';
+      let inRemarks = false;
+      let remarks = [];
+
+      while (this.hasMore()) {
+        let token = this.consume();
+
+        if (inRemarks) {
+          remarks.push(token.value);
+          continue;
+        }
+
+        if (token.type === 'RMK') {
+          inRemarks = true;
+          continue;
+        }
+
+        if (token.type === 'PROB') {
+          probability = ` (вероятность ${token.value.replace('PROB', '')}%)`;
+          continue;
+        }
+
+        if (token.type === 'NOSIG') {
+          if (currentTrend) this.result.push(currentTrend.trim());
+          this.result.push(`Прогноз: значительных изменений не ожидается${probability}`);
+          probability = '';
+          currentTrend = '';
+          inTrend = false;
+          continue;
+        }
+
+        if (['TREND', 'TREND_TIME', 'BECMG', 'TEMPO'].includes(token.type)) {
+          if (currentTrend) this.result.push(currentTrend.trim());
+          currentTrend = `Дополнительный прогноз${probability}: ${TREND_TYPES[token.value] || token.value}`;
+          probability = '';
+          if (token.type === 'TREND_TIME') {
+            const timeMatch = token.value.match(/^(FM|TL|AT)(\d{4})$/);
+            if (timeMatch) {
+              const [, type, time] = timeMatch;
+              currentTrend += ` ${type === 'FM' ? 'с' : type === 'TL' ? 'до' : 'в'} ${this.parseTrendTime(time)}`;
+            }
+          }
+          if (this.peek()?.type === 'PERIOD') {
+            const period = this.consume();
+            currentTrend += ` ${this.parsePeriod(period.value)}`;
+          }
+          inTrend = true;
+          continue;
+        }
+
+        if (inTrend) {
+          switch (token.type) {
+            case 'WIND':
+              currentTrend += ` → ${this.parseWind(token)}; `;
+              break;
+            case 'VAR_WIND':
+              currentTrend += ` → Вариация ветра: от ${token.value.substring(0, 3)}° до ${token.value.substring(4)}°; `;
+              break;
+            case 'VIS':
+              currentTrend += ` → ${this.parseVisibility(token)}; `;
+              break;
+            case 'RVR':
+              currentTrend += ` → ${this.parseRVR(token.value)}; `;
+              break;
+            case 'WX':
+              currentTrend += ` → Погода: ${WeatherDecoder.decode(token.value)}; `;
+              break;
+            case 'CLOUDS':
+              currentTrend += ` → ${this.parseClouds(token)}; `;
+              break;
+            case 'TEMP':
+              currentTrend += ` → ${this.parseTemperature(token)}; `;
+              break;
+            case 'QNH':
+              currentTrend += ` → ${this.parsePressure(token)}; `;
+              break;
+            default:
+              currentTrend += ` → Дополнительная: ${token.value}; `;
+              break;
+          }
+          continue;
+        }
+
+        // Основная часть
+        switch (token.type) {
+          case 'TYPE':
+            this.result.push(`Тип: ${token.value}`);
+            break;
+          case 'COR':
+            this.result.push(`Статус: Корректированный`);
+            break;
+          case 'AMD':
+            this.result.push(`Статус: Амендированный`);
+            break;
+          case 'CNL':
+            this.result.push(`Статус: Отмененный`);
+            break;
+          case 'ICAO':
+            this.result.push(`Аэродром: ${token.value}`);
+            break;
+          case 'TIME':
+            this.result.push(this.parseTime(token.value));
+            break;
+          case 'PERIOD':
+            this.result.push(this.parsePeriod(token.value));
+            break;
+          case 'WIND':
+            this.result.push(this.parseWind(token));
+            break;
+          case 'VAR_WIND':
+            this.result.push(`Вариация ветра: от ${token.value.substring(0, 3)}° до ${token.value.substring(4)}°`);
+            break;
+          case 'VIS':
+            this.result.push(this.parseVisibility(token));
+            break;
+          case 'WX':
+            this.result.push(`Погода: ${WeatherDecoder.decode(token.value)}`);
+            break;
+          case 'CLOUDS':
+            this.result.push(this.parseClouds(token));
+            break;
+          case 'T_MIN_MAX':
+            const match = token.value.match(TOKENS.T_MIN_MAX);
+            if (match) {
+              const [, type, temp, time] = match;
+              const tempValue = temp.startsWith('M') ? `-${temp.substring(1)}` : temp;
+              const tempTime = `${time.substring(0, 2)}:${time.substring(2, 4)} UTC`;
+              this.result.push(`${type === 'TX' ? 'Максимальная' : 'Минимальная'} температура: ${tempValue}°C в ${tempTime}`);
+            } else {
+              this.result.push(`Дополнительная группа: ${token.value}`);
+            }
+            break;
+          case 'UNKNOWN':
+          default:
+            this.result.push(`Дополнительная группа: ${token.value}`);
+            break;
+        }
       }
-      
-      // ICAO аэродрома
-      const icao = this.expect(['ICAO']);
-      if (icao) this.result.push(`Аэродром: ${icao.value}`);
-      
-      // Время выпуска
-      const issueTime = this.expect(['TIME']);
-      if (issueTime) this.result.push(this.parseTime(issueTime.value));
-      
-      // Период действия - исправлено для формата 0518/0624
-      const period = this.expect(['PERIOD']);
-      if (period) this.result.push(this.parsePeriod(period.value));
-      
-      // Основной прогноз
-      this.parseMainForecast();
-      
-      // Дополнительные прогнозы (BECMG, TEMPO)
-      this.parseAdditionalForecasts();
-      
+
+      if (currentTrend) this.result.push(currentTrend.trim());
+      if (remarks.length > 0) this.result.push(`Замечания: ${remarks.join(' ')}`);
+
       return {
         text: this.result.join('\n'),
         errors: this.errors,
@@ -705,118 +781,6 @@ class TafParser extends BaseParser {
     const toHour = to.substring(2, 4);
     
     return `Период действия: с ${fromDay}-го ${fromHour}:00 UTC по ${toDay}-го ${toHour}:00 UTC`;
-  }
-
-  parseMainForecast() {
-    const mainGroups = [];
-    
-    // Ветер
-    if (this.current()?.type === 'WIND') {
-      const wind = this.consume();
-      mainGroups.push(this.parseWind(wind));
-    }
-    
-    // Видимость
-    if (this.current()?.type === 'VIS') {
-      const vis = this.consume();
-      mainGroups.push(this.parseVisibility(vis));
-    }
-    
-    // Погодные явления
-    while (this.current()?.type === 'WX') {
-      const weather = this.consume();
-      mainGroups.push(`Погода: ${WeatherDecoder.decode(weather.value)}`);
-    }
-    
-    // Облачность
-    while (this.current()?.type === 'CLOUDS') {
-      const cloud = this.consume();
-      mainGroups.push(this.parseClouds(cloud));
-    }
-    
-    // Температура минимум/максимум (американский формат)
-    while (this.current()?.type === 'T_MIN_MAX') {
-      const tempExtreme = this.consume();
-      const match = tempExtreme.value.match(TOKENS.T_MIN_MAX);
-      if (match) {
-        const [, type, temp, time] = match;
-        const tempValue = temp.startsWith('M') ? `-${temp.substring(1)}` : temp;
-        const tempTime = `${time.substring(0, 2)}:${time.substring(2, 4)} UTC`;
-        mainGroups.push(`${type === 'TX' ? 'Максимальная' : 'Минимальная'} температура: ${tempValue}°C в ${tempTime}`);
-      }
-    }
-    
-    if (mainGroups.length > 0) {
-      this.result.push('Основной прогноз: ' + mainGroups.join('; '));
-    }
-  }
-
-  parseAdditionalForecasts() {
-    while (this.hasMore()) {
-      const current = this.current();
-      
-      if (current.type === 'TREND' || current.type === 'TREND_TIME' || current.type === 'PROB') {
-        this.parseTrend();
-      } else {
-        break;
-      }
-    }
-  }
-
-  parseTrend() {
-    let trendText = '';
-    let probability = '';
-    
-    // Вероятность
-    if (this.current()?.type === 'PROB') {
-      const prob = this.consume();
-      probability = ` (вероятность ${prob.value.replace('PROB', '')}%)`;
-    }
-    
-    // Тип тренда
-    const trendType = this.expect(['TREND', 'TREND_TIME']);
-    if (!trendType) return;
-    
-    trendText = `Дополнительный прогноз${probability}: ${TREND_TYPES[trendType.value] || trendType.value}`;
-    
-    // Время для FM/TL (американский формат)
-    if (trendType.type === 'TREND_TIME') {
-      const timeMatch = trendType.value.match(/^(FM|TL)(\d{4})$/);
-      if (timeMatch) {
-        const [, type, time] = timeMatch;
-        trendText += ` ${type === 'FM' ? 'с' : 'до'} ${this.parseTrendTime(time)}`;
-      }
-    }
-    
-    // Период для BECMG/TEMPO
-    if (['BECMG', 'TEMPO'].includes(trendType.value) && this.current()?.type === 'PERIOD') {
-      const period = this.consume();
-      trendText += ` ${this.parsePeriod(period.value)}`;
-    }
-    
-    // Группы внутри тренда
-    const trendGroups = [];
-    while (this.hasMore() && !['TREND', 'TREND_TIME', 'PROB', 'RMK'].includes(this.current()?.type)) {
-      const group = this.consume();
-      
-      if (group.type === 'WIND') {
-        trendGroups.push(this.parseWind(group));
-      } else if (group.type === 'VIS') {
-        trendGroups.push(this.parseVisibility(group));
-      } else if (group.type === 'WX') {
-        trendGroups.push(`Погода: ${WeatherDecoder.decode(group.value)}`);
-      } else if (group.type === 'CLOUDS') {
-        trendGroups.push(this.parseClouds(group));
-      } else {
-        trendGroups.push(group.value);
-      }
-    }
-    
-    if (trendGroups.length > 0) {
-      trendText += ' → ' + trendGroups.join('; ');
-    }
-    
-    this.result.push(trendText);
   }
 
   parseTrendTime(timeStr) {
@@ -1010,7 +974,7 @@ function parseAirmet(code) { return 'Парсер AIRMET в разработке
 
 // Обновленная функция для выбора типа кода
 function initCodeTypeButtons() {
-  document.querySelectorAll('.code-type-btn:not([disabled])').forEach(btn => {
+  document.querySelectorAll('.code-type-btn').forEach(btn => {
     btn.addEventListener('click', function() {
       document.querySelectorAll('.code-type-btn').forEach(b => {
         b.classList.remove('active');
@@ -1029,7 +993,6 @@ function initCodeTypeButtons() {
 function togglePracticeModes(codeType) {
   const practiceDecodeBtn = document.querySelector('.mode-btn[data-mode="practice-decode"]');
   const practiceEncodeBtn = document.querySelector('.mode-btn[data-mode="practice-encode"]');
-  const modeSelector = document.querySelector('.mode-selector');
   
   const availableTypes = ['metar', 'taf'];
   
@@ -1049,19 +1012,11 @@ function togglePracticeModes(codeType) {
     practiceEncodeBtn.style.display = 'flex';
   }
 }
-
 function updateInstructions(codeType) {
   const instructions = document.getElementById('decode-instructions');
   const hints = document.getElementById('hints');
   
   const availableTypes = ['metar', 'taf'];
-  const disabledTypes = ['kn01', 'gamet', 'sigmet', 'warep', 'kn04', 'airmet'];
-  
-  if (disabledTypes.includes(codeType)) {
-    instructions.innerHTML = `<strong>${codeType.toUpperCase()} - В разработке</strong><br>Данный тип кода временно недоступен. Выберите METAR или TAF.`;
-    hints.textContent = 'Парсер в разработке...';
-    return;
-  }
   
   if (!availableTypes.includes(codeType)) {
     instructions.innerHTML = `<strong>${codeType.toUpperCase()} в разработке</strong><br>Данный тип кода временно недоступен для авторасшифровки. Выберите METAR или TAF.`;
@@ -1069,6 +1024,17 @@ function updateInstructions(codeType) {
     return;
   }
   
+  switch(codeType) {
+    case 'metar':
+      instructions.innerHTML = '<strong>Режим авторасшифровки METAR/SPECI:</strong> Введите код в поле ниже и нажмите "Расшифровать".';
+      hints.textContent = 'UUWW - Аэропорт Внуково\n141630Z - 14 число, 16:30 UTC\n05007MPS - Ветер 050°, 7 м/с\n9999 - Видимость 10+ км\nSCT020 - Облачность рассеянная на 2000 футов\n17/12 - Температура 17°C, точка росы 12°C\nQ1011 - Давление 1011 гПа\nNOSIG - Без значительных изменений';
+      break;
+    case 'taf':
+      instructions.innerHTML = '<strong>Режим авторасшифровки TAF:</strong> Введите код прогноза в поле ниже.';
+      hints.textContent = 'TAF - Тип сообщения (прогноз)\nUUWW - Аэропорт Внуково\n141600Z - Время выпуска 14 число, 16:00 UTC\n1418/1524 - Период действия с 14-го 18:00 до 15-го 24:00\n03005MPS - Ветер 030°, 5 м/с\n9999 - Видимость 10+ км\nBKN015 - Значительная облачность на 1500 футов\nBECMG - Постепенное изменение\nTEMPO - Временное изменение';
+      break;
+  }
+}
 
 // Остальные функции остаются без изменений...
 function newPracticeCode() {
@@ -1169,19 +1135,14 @@ document.addEventListener('DOMContentLoaded', function() {
   initCodeTypeButtons();
   updateTrainerStats();
   
-  if (typeof initGameSelector === 'function') {
-    initGameSelector();
-
- }
-  if (typeof loadMiniStats === 'function') {
-    loadMiniStats();
-  }
+  // Инициализация первого упражнения
   newPracticeCode();
   if (typeof newEncodeExercise === 'function') {
     newEncodeExercise();
   }
   
-const initialCodeType = document.querySelector('.code-type-btn.active').dataset.type;
+  // Скрываем практические режимы для недоступных типов кодов при старте
+  const initialCodeType = document.querySelector('.code-type-btn.active').dataset.type;
   togglePracticeModes(initialCodeType);
 });
 
@@ -1340,7 +1301,6 @@ function loadSettings() {
 }
 
 loadSettings();
-
 function toggleAccordion(element) {
   element.classList.toggle("active");
   const panel = element.nextElementSibling;
@@ -1349,5 +1309,6 @@ function toggleAccordion(element) {
     element.setAttribute("aria-expanded", "false");
   } else {
     panel.style.display = "block";
-    element.setAttribute("aria-expanded", "true");}
+    element.setAttribute("aria-expanded", "true");
+  }
 }
